@@ -2,6 +2,7 @@ package broadcast
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"reflect"
 	"sync"
@@ -9,13 +10,13 @@ import (
 
 // Subscriber defines the interface to
 type Subscriber interface {
-	Receive(interface{})
+	Receive(interface{}) error
 }
 
-type SubscribeFunc func(interface{})
+type SubscribeFunc func(interface{}) error
 
-func (s SubscribeFunc) Receive(v interface{}) {
-	s(v)
+func (s SubscribeFunc) Receive(v interface{}) error {
+	return s(v)
 }
 
 func (s SubscribeFunc) Equal(another Subscriber) bool {
@@ -57,9 +58,10 @@ const (
 type broadcastCmd struct {
 	kind    cmdType
 	payload interface{}
+	reply   chan error
 }
 
-func (svc *Service) sendCmd(k cmdType, v interface{}) error {
+func (svc *Service) sendCmd(k cmdType, v interface{}) chan error {
 	// The commands are not processed until Run() is called. Instead
 	// they are buffered in the "pending" slice.
 	//
@@ -77,29 +79,31 @@ func (svc *Service) sendCmd(k cmdType, v interface{}) error {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
 
+	reply := make(chan error, 1)
 	svc.pending = append(svc.pending, broadcastCmd{
 		kind:    k,
 		payload: v,
+		reply:   reply,
 	})
 	if svc.running {
 		svc.cond.Signal()
 	}
-	return nil
+	return reply
 }
 
 // Send puts the payload `v` to be broadcast to all subscribers
 func (svc *Service) Send(v interface{}) error {
-	return svc.sendCmd(cmdSend, v)
+	return <-svc.sendCmd(cmdSend, v)
 }
 
 // Subscribe registers a subscriber to receive broadcast messages
 func (svc *Service) Subscribe(s Subscriber) error {
-	return svc.sendCmd(cmdSubscribe, s)
+	return <-svc.sendCmd(cmdSubscribe, s)
 }
 
 // Unsubscribe unregisters a previously registered subscriber
 func (svc *Service) Unsubscribe(s Subscriber) error {
-	return svc.sendCmd(cmdUnsubscribe, s)
+	return <-svc.sendCmd(cmdUnsubscribe, s)
 }
 
 func (svc *Service) drainPending(ctx context.Context) {
@@ -165,17 +169,27 @@ func (svc *Service) Run(ctx context.Context) error {
 			case cmdSubscribe:
 				svc.subscribers = append(svc.subscribers, v.payload.(Subscriber))
 			case cmdUnsubscribe:
+				var found bool
 				for i, sub := range svc.subscribers {
 					if compareSubscribers(sub, v.payload.(Subscriber)) {
+						found = true
 						svc.subscribers = append(svc.subscribers[:i], svc.subscribers[i+1:]...)
 						break
 					}
 				}
-			case cmdSend:
-				for _, sub := range svc.subscribers {
-					sub.Receive(v.payload)
+				if !found {
+					v.reply <- fmt.Errorf(`could not find subscription`)
 				}
+			case cmdSend:
+				var errCount int
+				for _, sub := range svc.subscribers {
+					if err := sub.Receive(v.payload); err != nil {
+						errCount++
+					}
+				}
+				v.reply <- fmt.Errorf(`some receivers failed to receive payload`)
 			}
+			close(v.reply)
 		}
 	}
 }
