@@ -4,36 +4,8 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"reflect"
 	"sync"
 )
-
-// Subscriber defines the interface to
-type Subscriber interface {
-	Receive(interface{}) error
-}
-
-type SubscribeFunc func(interface{}) error
-
-func (s SubscribeFunc) Receive(v interface{}) error {
-	return s(v)
-}
-
-func (s SubscribeFunc) Equal(another Subscriber) bool {
-	rv1 := reflect.ValueOf(s)
-	rv2 := reflect.ValueOf(another)
-
-	if rv1.Kind() != rv2.Kind() {
-		return false
-	}
-
-	switch rv1.Kind() {
-	case reflect.Func:
-		return rv1.Pointer() == rv2.Pointer()
-	default:
-		return false
-	}
-}
 
 // Service is responsible for accepting a payload, and
 // broadcasting it to all data sinks. It is expected that
@@ -45,6 +17,7 @@ type Service struct {
 	control     chan broadcastCmd
 	pending     []broadcastCmd
 	subscribers []Subscriber
+	// note: The zero value should "work" (i.e. not blow up)
 }
 
 type cmdType int
@@ -61,7 +34,7 @@ type broadcastCmd struct {
 	reply   chan error
 }
 
-func (svc *Service) sendCmd(k cmdType, v interface{}) chan error {
+func (svc *Service) sendCmd(k cmdType, v interface{}, options ...CommandOption) error {
 	// The commands are not processed until Run() is called. Instead
 	// they are buffered in the "pending" slice.
 	//
@@ -76,10 +49,23 @@ func (svc *Service) sendCmd(k cmdType, v interface{}) chan error {
 	// Within Run(), the Service object just sits and waits until it's
 	// notified by the condition variable -- once it gets a notification
 	// it processes the commands one by one
+
+	var ack bool
+	for _, option := range options {
+		//nolint:forcetypeassert
+		switch option.Ident() {
+		case identAck{}:
+			ack = option.Value().(bool)
+		}
+	}
+
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
 
-	reply := make(chan error, 1)
+	var reply chan error
+	if ack {
+		reply = make(chan error, 1)
+	}
 	svc.pending = append(svc.pending, broadcastCmd{
 		kind:    k,
 		payload: v,
@@ -88,22 +74,26 @@ func (svc *Service) sendCmd(k cmdType, v interface{}) chan error {
 	if svc.running {
 		svc.cond.Signal()
 	}
-	return reply
+
+	if ack {
+		return <-reply
+	}
+	return nil
 }
 
-// Send puts the payload `v` to be broadcast to all subscribers
-func (svc *Service) Send(v interface{}) error {
-	return <-svc.sendCmd(cmdSend, v)
+// Send puts the payload `v` to be broadcast to all subscribers.
+func (svc *Service) Send(v interface{}, options ...CommandOption) error {
+	return svc.sendCmd(cmdSend, v, options...)
 }
 
 // Subscribe registers a subscriber to receive broadcast messages
-func (svc *Service) Subscribe(s Subscriber) error {
-	return <-svc.sendCmd(cmdSubscribe, s)
+func (svc *Service) Subscribe(s Subscriber, options ...CommandOption) error {
+	return svc.sendCmd(cmdSubscribe, s, options...)
 }
 
 // Unsubscribe unregisters a previously registered subscriber
-func (svc *Service) Unsubscribe(s Subscriber) error {
-	return <-svc.sendCmd(cmdUnsubscribe, s)
+func (svc *Service) Unsubscribe(s Subscriber, options ...CommandOption) error {
+	return svc.sendCmd(cmdUnsubscribe, s, options...)
 }
 
 func (svc *Service) drainPending(ctx context.Context) {
@@ -136,6 +126,8 @@ type equaler interface {
 	Equal(Subscriber) bool
 }
 
+// This exists to allow function based subscribers -- functions can't be
+// compared using ==
 func compareSubscribers(a, b Subscriber) bool {
 	switch a := a.(type) {
 	case equaler:
@@ -177,7 +169,7 @@ func (svc *Service) Run(ctx context.Context) error {
 						break
 					}
 				}
-				if !found {
+				if v.reply != nil && !found {
 					v.reply <- fmt.Errorf(`could not find subscription`)
 				}
 			case cmdSend:
@@ -187,9 +179,13 @@ func (svc *Service) Run(ctx context.Context) error {
 						errCount++
 					}
 				}
-				v.reply <- fmt.Errorf(`some receivers failed to receive payload`)
+				if v.reply != nil && errCount > 0 {
+					v.reply <- fmt.Errorf(`some receivers failed to receive payload`)
+				}
 			}
-			close(v.reply)
+			if v.reply != nil {
+				close(v.reply)
+			}
 		}
 	}
 }

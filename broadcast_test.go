@@ -26,6 +26,9 @@ func TestService(t *testing.T) {
 		return nil
 	})
 
+	_ = svc.Subscribe(sub1, broadcast.WithAck(false))
+	_ = svc.Send(sendMsgs[0], broadcast.WithAck(false))
+	_ = svc.Subscribe(sub2, broadcast.WithAck(false))
 	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
 	defer cancel()
 
@@ -35,9 +38,6 @@ func TestService(t *testing.T) {
 		_ = svc.Run(ctx)
 	}(ready)
 
-	_ = svc.Subscribe(sub1)
-	_ = svc.Send(sendMsgs[0])
-	_ = svc.Subscribe(sub2)
 	for i := 1; i < len(sendMsgs)-1; i++ {
 		_ = svc.Send(sendMsgs[i])
 	}
