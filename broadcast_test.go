@@ -17,14 +17,14 @@ func TestService(t *testing.T) {
 	}
 	var msgs1, msgs2 []interface{}
 
-	sub1 := broadcast.SubscribeFunc(func(v interface{}) {
+	sub1 := broadcast.SubscribeFunc(func(v interface{}) error {
 		msgs1 = append(msgs1, v)
+		return nil
 	})
-	sub2 := broadcast.SubscribeFunc(func(v interface{}) {
+	sub2 := broadcast.SubscribeFunc(func(v interface{}) error {
 		msgs2 = append(msgs2, v)
+		return nil
 	})
-	svc.Subscribe(sub1)
-	svc.Send(sendMsgs[0])
 
 	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
 	defer cancel()
@@ -35,6 +35,8 @@ func TestService(t *testing.T) {
 		svc.Run(ctx)
 	}(ready)
 
+	svc.Subscribe(sub1)
+	svc.Send(sendMsgs[0])
 	svc.Subscribe(sub2)
 	for i := 1; i < len(sendMsgs)-1; i++ {
 		svc.Send(sendMsgs[i])
