@@ -14,6 +14,7 @@ type Service struct {
 	mu          sync.RWMutex
 	cond        *sync.Cond
 	control     chan pubsubCmd
+	data        chan pubsubCmd
 	pending     []pubsubCmd
 	subscribers []Subscriber
 
@@ -105,7 +106,10 @@ func (svc *Service) Receive(v interface{}, options ...CommandOption) error {
 	return svc.sendCmd(cmdReceive, v, options...)
 }
 
+const bufferProcessingSize = 32
+
 func (svc *Service) drainPending(ctx context.Context) {
+	pending := make([]pubsubCmd, 0, bufferProcessingSize)
 	for {
 		select {
 		case <-ctx.Done():
@@ -116,16 +120,44 @@ func (svc *Service) drainPending(ctx context.Context) {
 		svc.cond.L.Lock()
 		for len(svc.pending) <= 0 {
 			svc.cond.Wait()
+			// if we woke up and we're supposed to be done, bail out
+			select {
+			case <-ctx.Done():
+				return
+			default:
+			}
 		}
 
-		v := svc.pending[0]
-		svc.pending = svc.pending[1:]
+		// copy over the pending queue so we can release the lock
+		if l := len(svc.pending); l < bufferProcessingSize {
+			pending = pending[:l]
+		} else {
+			pending = pending[:bufferProcessingSize]
+		}
+		n := copy(pending, svc.pending)
+
+		// reduce the pending queue
+		svc.pending = svc.pending[n:]
+
+		// after this unlock, users can add more commands
 		svc.cond.L.Unlock()
 
-		select {
-		case <-ctx.Done():
-			return
-		case svc.control <- v:
+		// work on the local buffer. This needs no locking
+		for _, v := range pending {
+			switch v.kind {
+			case cmdSubscribe, cmdUnsubscribe:
+				select {
+				case <-ctx.Done():
+					return
+				case svc.control <- v:
+				}
+			case cmdSend, cmdReceive:
+				select {
+				case <-ctx.Done():
+					return
+				case svc.data <- v:
+				}
+			}
 		}
 	}
 }
@@ -162,12 +194,15 @@ func (svc *Service) Run(ctx context.Context, options ...RunOption) error {
 	svc.egress = egress
 	svc.cond = sync.NewCond(&svc.mu)
 	svc.control = make(chan pubsubCmd)
+	svc.data = make(chan pubsubCmd)
 	svc.running = true
 	svc.mu.Unlock()
 
 	defer func() {
 		svc.mu.Lock()
 		svc.running = false
+		close(svc.data)
+		close(svc.control)
 		svc.mu.Unlock()
 	}()
 
@@ -193,6 +228,9 @@ func (svc *Service) Run(ctx context.Context, options ...RunOption) error {
 				if v.reply != nil && !found {
 					v.reply <- fmt.Errorf(`could not find subscription`)
 				}
+			}
+		case v := <-svc.data:
+			switch v.kind {
 			case cmdSend:
 				_ = svc.egress.Send(v.payload)
 			case cmdReceive:
