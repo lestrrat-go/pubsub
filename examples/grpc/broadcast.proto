@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package broadcast;
+
+option go_package = "./broadcast";
+
+service Broadcaster {
+  rpc Broadcast(BroadcastRequest) returns (BroadcastResponse) {}
+}
+
+message BroadcastRequest {
+  string message = 1;
+}
+
+message BroadcastResponse {
+  bool success = 1;
+}
