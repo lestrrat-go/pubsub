@@ -25,7 +25,7 @@ func (b *loopback) Run(ctx context.Context, svc *broadcast.Service) {
 		case <-ctx.Done():
 			return
 		case v := <-b.ch:
-			svc.Receive(v)
+			_ = svc.Receive(v)
 		}
 	}
 }

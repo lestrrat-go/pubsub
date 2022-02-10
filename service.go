@@ -194,7 +194,7 @@ func (svc *Service) Run(ctx context.Context, options ...RunOption) error {
 					v.reply <- fmt.Errorf(`could not find subscription`)
 				}
 			case cmdSend:
-				svc.backend.Send(v.payload)
+				_ = svc.backend.Send(v.payload)
 			case cmdReceive:
 				var errCount int
 				for _, sub := range svc.subscribers {
