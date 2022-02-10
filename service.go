@@ -16,7 +16,8 @@ type Service struct {
 	control     chan broadcastCmd
 	pending     []broadcastCmd
 	subscribers []Subscriber
-	backend     Backend
+
+	egress Egress
 	// note: The zero value should "work" (i.e. not blow up)
 }
 
@@ -97,9 +98,9 @@ func (svc *Service) Unsubscribe(s Subscriber, options ...CommandOption) error {
 	return svc.sendCmd(cmdUnsubscribe, s, options...)
 }
 
-// Receive should only be used by the backend. When the backend
-// receives new data to be broadcast to the subscribers, they
-// can use this method
+// Receive should only be used by whatever ingress service.
+// When there is new data coming in from the ingress,
+// this method can be used to broadcast the data to the subscribers
 func (svc *Service) Receive(v interface{}, options ...CommandOption) error {
 	return svc.sendCmd(cmdReceive, v, options...)
 }
@@ -145,20 +146,20 @@ func compareSubscribers(a, b Subscriber) bool {
 }
 
 func (svc *Service) Run(ctx context.Context, options ...RunOption) error {
-	var backend Backend
+	var egress Egress
 	//nolint:forcetypeassert
 	for _, option := range options {
 		switch option.Ident() {
-		case identBackend{}:
-			backend = option.Value().(Backend)
+		case identEgress{}:
+			egress = option.Value().(Egress)
 		}
 	}
 
 	svc.mu.Lock()
-	if backend == nil {
-		backend = nilBackend{}
+	if egress == nil {
+		egress = nilEgress{}
 	}
-	svc.backend = backend
+	svc.egress = egress
 	svc.cond = sync.NewCond(&svc.mu)
 	svc.control = make(chan broadcastCmd)
 	svc.running = true
@@ -170,7 +171,6 @@ func (svc *Service) Run(ctx context.Context, options ...RunOption) error {
 		svc.mu.Unlock()
 	}()
 
-	go svc.backend.Run(ctx, svc)
 	go svc.drainPending(ctx)
 
 	for {
@@ -194,7 +194,7 @@ func (svc *Service) Run(ctx context.Context, options ...RunOption) error {
 					v.reply <- fmt.Errorf(`could not find subscription`)
 				}
 			case cmdSend:
-				_ = svc.backend.Send(v.payload)
+				_ = svc.egress.Send(v.payload)
 			case cmdReceive:
 				var errCount int
 				for _, sub := range svc.subscribers {

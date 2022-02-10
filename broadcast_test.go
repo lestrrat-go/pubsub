@@ -65,9 +65,11 @@ func TestService(t *testing.T) {
 		defer cancel()
 
 		ready := make(chan struct{})
+		egress := &loopback{ch: make(chan interface{})}
+		go egress.Run(ctx, &svc)
 		go func(ready chan struct{}) {
 			defer close(ready)
-			_ = svc.Run(ctx, broadcast.WithBackend(&loopback{ch: make(chan interface{})}))
+			_ = svc.Run(ctx, broadcast.WithEgress(egress))
 		}(ready)
 
 		<-ready

@@ -4,7 +4,7 @@ import "github.com/lestrrat-go/option"
 
 type Option = option.Interface
 type identAck struct{}
-type identBackend struct{}
+type identEgress struct{}
 
 type CommandOption interface {
 	Option
@@ -34,8 +34,8 @@ func WithAck(b bool) CommandOption {
 	return &commandOption{option.New(identAck{}, b)}
 }
 
-// WithBackend specifies the backend object to be used by the
+// WithEgress specifies the egress object to be used by the
 // service.
-func WithBackend(b Backend) RunOption {
-	return &runOption{option.New(identBackend{}, b)}
+func WithEgress(b Egress) RunOption {
+	return &runOption{option.New(identEgress{}, b)}
 }
