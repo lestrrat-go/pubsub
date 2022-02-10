@@ -1,18 +1,18 @@
-broadcast
+pubsub
 =========
 
-Simple broadcasting framework for Go.
+Simple pubsub framework for Go.
 
 This is (should be, fingers crossed) safe to be used from multiple goroutines. Designed such that only one goroutine makes changes to the object structure
 
 
 ```go
-var svc broadcast.Service
+var svc pubsub.Service
 
 var msgs []interface{}
 // You can create your own subscriber, of course, but this
 // is the built-in hack to allow closures (eek)
-sub := broadcast.SubscribeFunc(func(v interface{}) {
+sub := pubsub.SubscribeFunc(func(v interface{}) {
   msgs = append(msgs, v)
 })
 
@@ -32,6 +32,6 @@ go svc.Run(ctx)
 svc.Send(`World!`)
 
 // If you have another subscriber, you can add it here.
-// It will only receive subsequent broadcast requests
+// It will only receive subsequent pubsub requests
 // svc.Subscribe(sub2)
 ```

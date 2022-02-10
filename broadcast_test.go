@@ -1,11 +1,11 @@
-package broadcast_test
+package pubsub_test
 
 import (
 	"context"
 	"testing"
 	"time"
 
-	"github.com/lestrrat-go/broadcast"
+	"github.com/lestrrat-go/pubsub"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -19,7 +19,7 @@ func (b *loopback) Send(v interface{}) error {
 	return nil
 }
 
-func (b *loopback) Run(ctx context.Context, svc *broadcast.Service) {
+func (b *loopback) Run(ctx context.Context, svc *pubsub.Service) {
 	for {
 		select {
 		case <-ctx.Done():
@@ -31,31 +31,31 @@ func (b *loopback) Run(ctx context.Context, svc *broadcast.Service) {
 }
 func TestService(t *testing.T) {
 	t.Run("Send before subscribing should not be an error", func(t *testing.T) {
-		var svc broadcast.Service
+		var svc pubsub.Service
 
-		if !assert.NoError(t, svc.Send(`Hello`, broadcast.WithAck(false)), `Sending before subscribing should not be an error`) {
+		if !assert.NoError(t, svc.Send(`Hello`, pubsub.WithAck(false)), `Sending before subscribing should not be an error`) {
 			return
 		}
 	})
 	t.Run("Multiple messages, multiple subscribers", func(t *testing.T) {
-		var svc broadcast.Service
+		var svc pubsub.Service
 
 		sendMsgs := []interface{}{
 			"Hello", 1, 'W', 'o', 'r', 'l', 'd', 3.14,
 		}
 		var msgs1, msgs2 []interface{}
 
-		sub1 := broadcast.SubscribeFunc(func(v interface{}) error {
+		sub1 := pubsub.SubscribeFunc(func(v interface{}) error {
 			msgs1 = append(msgs1, v)
 			return nil
 		})
-		sub2 := broadcast.SubscribeFunc(func(v interface{}) error {
+		sub2 := pubsub.SubscribeFunc(func(v interface{}) error {
 			msgs2 = append(msgs2, v)
 			return nil
 		})
 
-		_ = svc.Subscribe(sub1, broadcast.WithAck(false))
-		_ = svc.Subscribe(sub2, broadcast.WithAck(false))
+		_ = svc.Subscribe(sub1, pubsub.WithAck(false))
+		_ = svc.Subscribe(sub2, pubsub.WithAck(false))
 
 		for i := 0; i < len(sendMsgs); i++ {
 			_ = svc.Send(sendMsgs[i])
@@ -69,7 +69,7 @@ func TestService(t *testing.T) {
 		go egress.Run(ctx, &svc)
 		go func(ready chan struct{}) {
 			defer close(ready)
-			_ = svc.Run(ctx, broadcast.WithEgress(egress))
+			_ = svc.Run(ctx, pubsub.WithEgress(egress))
 		}(ready)
 
 		<-ready

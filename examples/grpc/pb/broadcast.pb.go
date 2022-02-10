@@ -2,9 +2,9 @@
 // versions:
 // 	protoc-gen-go v1.26.0
 // 	protoc        v3.6.1
-// source: broadcast.proto
+// source: pubsub.proto
 
-package broadcast
+package pubsub
 
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
@@ -31,7 +31,7 @@ type BroadcastRequest struct {
 func (x *BroadcastRequest) Reset() {
 	*x = BroadcastRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_broadcast_proto_msgTypes[0]
+		mi := &file_pubsub_proto_msgTypes[0]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -44,7 +44,7 @@ func (x *BroadcastRequest) String() string {
 func (*BroadcastRequest) ProtoMessage() {}
 
 func (x *BroadcastRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_broadcast_proto_msgTypes[0]
+	mi := &file_pubsub_proto_msgTypes[0]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -57,7 +57,7 @@ func (x *BroadcastRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BroadcastRequest.ProtoReflect.Descriptor instead.
 func (*BroadcastRequest) Descriptor() ([]byte, []int) {
-	return file_broadcast_proto_rawDescGZIP(), []int{0}
+	return file_pubsub_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *BroadcastRequest) GetMessage() string {
@@ -78,7 +78,7 @@ type BroadcastResponse struct {
 func (x *BroadcastResponse) Reset() {
 	*x = BroadcastResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_broadcast_proto_msgTypes[1]
+		mi := &file_pubsub_proto_msgTypes[1]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -91,7 +91,7 @@ func (x *BroadcastResponse) String() string {
 func (*BroadcastResponse) ProtoMessage() {}
 
 func (x *BroadcastResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_broadcast_proto_msgTypes[1]
+	mi := &file_pubsub_proto_msgTypes[1]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -104,7 +104,7 @@ func (x *BroadcastResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BroadcastResponse.ProtoReflect.Descriptor instead.
 func (*BroadcastResponse) Descriptor() ([]byte, []int) {
-	return file_broadcast_proto_rawDescGZIP(), []int{1}
+	return file_pubsub_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *BroadcastResponse) GetSuccess() bool {
@@ -114,9 +114,9 @@ func (x *BroadcastResponse) GetSuccess() bool {
 	return false
 }
 
-var File_broadcast_proto protoreflect.FileDescriptor
+var File_pubsub_proto protoreflect.FileDescriptor
 
-var file_broadcast_proto_rawDesc = []byte{
+var file_pubsub_proto_rawDesc = []byte{
 	0x0a, 0x0f, 0x62, 0x72, 0x6f, 0x61, 0x64, 0x63, 0x61, 0x73, 0x74, 0x2e, 0x70, 0x72, 0x6f, 0x74,
 	0x6f, 0x12, 0x09, 0x62, 0x72, 0x6f, 0x61, 0x64, 0x63, 0x61, 0x73, 0x74, 0x22, 0x2c, 0x0a, 0x10,
 	0x42, 0x72, 0x6f, 0x61, 0x64, 0x63, 0x61, 0x73, 0x74, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74,
@@ -135,25 +135,25 @@ var file_broadcast_proto_rawDesc = []byte{
 }
 
 var (
-	file_broadcast_proto_rawDescOnce sync.Once
-	file_broadcast_proto_rawDescData = file_broadcast_proto_rawDesc
+	file_pubsub_proto_rawDescOnce sync.Once
+	file_pubsub_proto_rawDescData = file_pubsub_proto_rawDesc
 )
 
-func file_broadcast_proto_rawDescGZIP() []byte {
-	file_broadcast_proto_rawDescOnce.Do(func() {
-		file_broadcast_proto_rawDescData = protoimpl.X.CompressGZIP(file_broadcast_proto_rawDescData)
+func file_pubsub_proto_rawDescGZIP() []byte {
+	file_pubsub_proto_rawDescOnce.Do(func() {
+		file_pubsub_proto_rawDescData = protoimpl.X.CompressGZIP(file_pubsub_proto_rawDescData)
 	})
-	return file_broadcast_proto_rawDescData
+	return file_pubsub_proto_rawDescData
 }
 
-var file_broadcast_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
-var file_broadcast_proto_goTypes = []interface{}{
-	(*BroadcastRequest)(nil),  // 0: broadcast.BroadcastRequest
-	(*BroadcastResponse)(nil), // 1: broadcast.BroadcastResponse
+var file_pubsub_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
+var file_pubsub_proto_goTypes = []interface{}{
+	(*BroadcastRequest)(nil),  // 0: pubsub.BroadcastRequest
+	(*BroadcastResponse)(nil), // 1: pubsub.BroadcastResponse
 }
-var file_broadcast_proto_depIdxs = []int32{
-	0, // 0: broadcast.Broadcaster.Broadcast:input_type -> broadcast.BroadcastRequest
-	1, // 1: broadcast.Broadcaster.Broadcast:output_type -> broadcast.BroadcastResponse
+var file_pubsub_proto_depIdxs = []int32{
+	0, // 0: pubsub.Broadcaster.Broadcast:input_type -> pubsub.BroadcastRequest
+	1, // 1: pubsub.Broadcaster.Broadcast:output_type -> pubsub.BroadcastResponse
 	1, // [1:2] is the sub-list for method output_type
 	0, // [0:1] is the sub-list for method input_type
 	0, // [0:0] is the sub-list for extension type_name
@@ -161,13 +161,13 @@ var file_broadcast_proto_depIdxs = []int32{
 	0, // [0:0] is the sub-list for field type_name
 }
 
-func init() { file_broadcast_proto_init() }
-func file_broadcast_proto_init() {
-	if File_broadcast_proto != nil {
+func init() { file_pubsub_proto_init() }
+func file_pubsub_proto_init() {
+	if File_pubsub_proto != nil {
 		return
 	}
 	if !protoimpl.UnsafeEnabled {
-		file_broadcast_proto_msgTypes[0].Exporter = func(v interface{}, i int) interface{} {
+		file_pubsub_proto_msgTypes[0].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*BroadcastRequest); i {
 			case 0:
 				return &v.state
@@ -179,7 +179,7 @@ func file_broadcast_proto_init() {
 				return nil
 			}
 		}
-		file_broadcast_proto_msgTypes[1].Exporter = func(v interface{}, i int) interface{} {
+		file_pubsub_proto_msgTypes[1].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*BroadcastResponse); i {
 			case 0:
 				return &v.state
@@ -196,18 +196,18 @@ func file_broadcast_proto_init() {
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: file_broadcast_proto_rawDesc,
+			RawDescriptor: file_pubsub_proto_rawDesc,
 			NumEnums:      0,
 			NumMessages:   2,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
-		GoTypes:           file_broadcast_proto_goTypes,
-		DependencyIndexes: file_broadcast_proto_depIdxs,
-		MessageInfos:      file_broadcast_proto_msgTypes,
+		GoTypes:           file_pubsub_proto_goTypes,
+		DependencyIndexes: file_pubsub_proto_depIdxs,
+		MessageInfos:      file_pubsub_proto_msgTypes,
 	}.Build()
-	File_broadcast_proto = out.File
-	file_broadcast_proto_rawDesc = nil
-	file_broadcast_proto_goTypes = nil
-	file_broadcast_proto_depIdxs = nil
+	File_pubsub_proto = out.File
+	file_pubsub_proto_rawDesc = nil
+	file_pubsub_proto_goTypes = nil
+	file_pubsub_proto_depIdxs = nil
 }

@@ -1,4 +1,4 @@
-module github.com/lestrrat-go/broadcast
+module github.com/lestrrat-go/pubsub
 
 go 1.17
 

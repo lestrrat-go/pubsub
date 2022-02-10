@@ -1,10 +1,10 @@
-module github.com/lestrrat-go/broadcast/examples/grpc
+module github.com/lestrrat-go/pubsub/examples/grpc
 
 go 1.17
 
 require (
 	github.com/golang/protobuf v1.5.2
-	github.com/lestrrat-go/broadcast v0.0.0-20220209140245-6a558729fa0e
+	github.com/lestrrat-go/pubsub v0.0.0-20220209140245-6a558729fa0e
 	github.com/stretchr/testify v1.7.0
 	google.golang.org/grpc v1.44.0
 )
@@ -21,4 +21,4 @@ require (
 	gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c // indirect
 )
 
-replace github.com/lestrrat-go/broadcast => ../../
+replace github.com/lestrrat-go/pubsub => ../../

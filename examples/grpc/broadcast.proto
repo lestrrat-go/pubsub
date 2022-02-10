@@ -1,8 +1,8 @@
 syntax = "proto3";
 
-package broadcast;
+package pubsub;
 
-option go_package = "./broadcast";
+option go_package = "./pubsub";
 
 service Broadcaster {
   rpc Broadcast(BroadcastRequest) returns (BroadcastResponse) {}
