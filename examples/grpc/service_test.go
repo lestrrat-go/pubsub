@@ -6,16 +6,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/lestrrat-go/broadcast"
-	grpcexample "github.com/lestrrat-go/broadcast/examples/grpc"
-	pb "github.com/lestrrat-go/broadcast/examples/grpc/pb"
+	"github.com/lestrrat-go/pubsub"
+	grpcexample "github.com/lestrrat-go/pubsub/examples/grpc"
+	pb "github.com/lestrrat-go/pubsub/examples/grpc/pb"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/test/bufconn"
 )
 
 func TestService(t *testing.T) {
-	var svc broadcast.Service
+	var svc pubsub.Service
 	var ingress grpcexample.Service
 
 	const bufSize = 1024 * 1024
@@ -29,7 +29,7 @@ func TestService(t *testing.T) {
 
 	var msgs1 []interface{}
 
-	sub1 := broadcast.SubscribeFunc(func(v interface{}) error {
+	sub1 := pubsub.SubscribeFunc(func(v interface{}) error {
 		msgs1 = append(msgs1, v)
 		return nil
 	})

@@ -1,4 +1,4 @@
-package broadcast
+package pubsub
 
 import "reflect"
 

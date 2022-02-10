@@ -1,4 +1,4 @@
-package broadcast
+package pubsub
 
 type Egress interface {
 	Send(interface{}) error

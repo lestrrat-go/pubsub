@@ -1,4 +1,4 @@
-package broadcast
+package pubsub
 
 import "github.com/lestrrat-go/option"
 

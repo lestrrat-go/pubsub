@@ -1,4 +1,4 @@
-package broadcast
+package pubsub
 
 import (
 	"context"
@@ -7,14 +7,14 @@ import (
 )
 
 // Service is responsible for accepting a payload, and
-// broadcasting it to all data sinks. It is expected that
+// pubsubing it to all data sinks. It is expected that
 // the data sinks do not block more than absolutely necessary
 type Service struct {
 	running     bool
 	mu          sync.RWMutex
 	cond        *sync.Cond
-	control     chan broadcastCmd
-	pending     []broadcastCmd
+	control     chan pubsubCmd
+	pending     []pubsubCmd
 	subscribers []Subscriber
 
 	egress Egress
@@ -30,7 +30,7 @@ const (
 	cmdReceive
 )
 
-type broadcastCmd struct {
+type pubsubCmd struct {
 	kind    cmdType
 	payload interface{}
 	reply   chan error
@@ -68,7 +68,7 @@ func (svc *Service) sendCmd(k cmdType, v interface{}, options ...CommandOption) 
 	if ack {
 		reply = make(chan error, 1)
 	}
-	svc.pending = append(svc.pending, broadcastCmd{
+	svc.pending = append(svc.pending, pubsubCmd{
 		kind:    k,
 		payload: v,
 		reply:   reply,
@@ -83,12 +83,12 @@ func (svc *Service) sendCmd(k cmdType, v interface{}, options ...CommandOption) 
 	return nil
 }
 
-// Send puts the payload `v` to be broadcast to all subscribers.
+// Send puts the payload `v` to be pubsub to all subscribers.
 func (svc *Service) Send(v interface{}, options ...CommandOption) error {
 	return svc.sendCmd(cmdSend, v, options...)
 }
 
-// Subscribe registers a subscriber to receive broadcast messages
+// Subscribe registers a subscriber to receive pubsub messages
 func (svc *Service) Subscribe(s Subscriber, options ...CommandOption) error {
 	return svc.sendCmd(cmdSubscribe, s, options...)
 }
@@ -100,7 +100,7 @@ func (svc *Service) Unsubscribe(s Subscriber, options ...CommandOption) error {
 
 // Receive should only be used by whatever ingress service.
 // When there is new data coming in from the ingress,
-// this method can be used to broadcast the data to the subscribers
+// this method can be used to pubsub the data to the subscribers
 func (svc *Service) Receive(v interface{}, options ...CommandOption) error {
 	return svc.sendCmd(cmdReceive, v, options...)
 }
@@ -161,7 +161,7 @@ func (svc *Service) Run(ctx context.Context, options ...RunOption) error {
 	}
 	svc.egress = egress
 	svc.cond = sync.NewCond(&svc.mu)
-	svc.control = make(chan broadcastCmd)
+	svc.control = make(chan pubsubCmd)
 	svc.running = true
 	svc.mu.Unlock()
 
