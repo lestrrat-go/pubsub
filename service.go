@@ -3,7 +3,6 @@ package broadcast
 import (
 	"context"
 	"fmt"
-	"log"
 	"sync"
 )
 
@@ -17,6 +16,7 @@ type Service struct {
 	control     chan broadcastCmd
 	pending     []broadcastCmd
 	subscribers []Subscriber
+	backend     Backend
 	// note: The zero value should "work" (i.e. not blow up)
 }
 
@@ -26,6 +26,7 @@ const (
 	cmdSubscribe cmdType = iota + 1
 	cmdUnsubscribe
 	cmdSend
+	cmdReceive
 )
 
 type broadcastCmd struct {
@@ -96,8 +97,14 @@ func (svc *Service) Unsubscribe(s Subscriber, options ...CommandOption) error {
 	return svc.sendCmd(cmdUnsubscribe, s, options...)
 }
 
+// Receive should only be used by the backend. When the backend
+// receives new data to be broadcast to the subscribers, they
+// can use this method
+func (svc *Service) Receive(v interface{}, options ...CommandOption) error {
+	return svc.sendCmd(cmdReceive, v, options...)
+}
+
 func (svc *Service) drainPending(ctx context.Context) {
-	defer log.Printf("stop draining...")
 	for {
 		select {
 		case <-ctx.Done():
@@ -137,8 +144,21 @@ func compareSubscribers(a, b Subscriber) bool {
 	}
 }
 
-func (svc *Service) Run(ctx context.Context) error {
+func (svc *Service) Run(ctx context.Context, options ...RunOption) error {
+	var backend Backend
+	//nolint:forcetypeassert
+	for _, option := range options {
+		switch option.Ident() {
+		case identBackend{}:
+			backend = option.Value().(Backend)
+		}
+	}
+
 	svc.mu.Lock()
+	if backend == nil {
+		backend = nilBackend{}
+	}
+	svc.backend = backend
 	svc.cond = sync.NewCond(&svc.mu)
 	svc.control = make(chan broadcastCmd)
 	svc.running = true
@@ -150,6 +170,7 @@ func (svc *Service) Run(ctx context.Context) error {
 		svc.mu.Unlock()
 	}()
 
+	go svc.backend.Run(ctx, svc)
 	go svc.drainPending(ctx)
 
 	for {
@@ -173,6 +194,8 @@ func (svc *Service) Run(ctx context.Context) error {
 					v.reply <- fmt.Errorf(`could not find subscription`)
 				}
 			case cmdSend:
+				svc.backend.Send(v.payload)
+			case cmdReceive:
 				var errCount int
 				for _, sub := range svc.subscribers {
 					if err := sub.Receive(v.payload); err != nil {
