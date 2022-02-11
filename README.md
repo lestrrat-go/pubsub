@@ -9,6 +9,10 @@ This is (should be, fingers crossed) safe to be used from multiple goroutines. D
 ```go
 var svc pubsub.Service
 
+// Create a Loopback object for in-memory broadcasting.
+// You can create similar publishing mechanism for gRPC, or whatever.
+l := pubsub.NewLoopback(&svc)
+
 var msgs []interface{}
 // You can create your own subscriber, of course, but this
 // is the built-in hack to allow closures (eek)
@@ -19,8 +23,8 @@ sub := pubsub.SubscribeFunc(func(v interface{}) {
 // Subscribing before starting the main loop is safe
 svc.Subscribe(sub)
 
-// Sending before starting the main loop is safe
-svc.Send(`Hello`)
+// Sending before starting the main loop is safe 
+l.Send(`Hello`)
 
 ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
 defer cancel()
@@ -29,7 +33,7 @@ defer cancel()
 go svc.Run(ctx)
 
 // Sending after starting the main loop.. is obviously safe.
-svc.Send(`World!`)
+l.Send(`World!`)
 
 // If you have another subscriber, you can add it here.
 // It will only receive subsequent pubsub requests
