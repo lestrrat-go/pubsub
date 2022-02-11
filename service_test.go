@@ -9,26 +9,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// loopback is a bakcend that just sends what it receives.
-type loopback struct {
-	ch chan interface{}
-}
-
-func (b *loopback) Send(v interface{}) error {
-	b.ch <- v
-	return nil
-}
-
-func (b *loopback) Run(ctx context.Context, svc *pubsub.Service) {
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case v := <-b.ch:
-			_ = svc.Receive(v)
-		}
-	}
-}
 func TestService(t *testing.T) {
 	t.Run("Receive before looping should not be an error", func(t *testing.T) {
 		var svc pubsub.Service
@@ -54,25 +34,23 @@ func TestService(t *testing.T) {
 			return nil
 		})
 
-		_ = svc.Subscribe(sub1, pubsub.WithAck(false))
-		_ = svc.Subscribe(sub2, pubsub.WithAck(false))
-
-		l := pubsub.NewLoopback(&svc)
-
-		for i := 0; i < len(sendMsgs); i++ {
-			_ = l.Send(sendMsgs[i])
-		}
-
 		ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
 		defer cancel()
-
 		ready := make(chan struct{})
-		egress := &loopback{ch: make(chan interface{})}
-		go egress.Run(ctx, &svc)
 		go func(ready chan struct{}) {
 			defer close(ready)
 			_ = svc.Run(ctx)
 		}(ready)
+
+		_ = svc.Subscribe(sub1)
+		_ = svc.Subscribe(sub2)
+
+		time.Sleep(100 * time.Millisecond)
+
+		l := pubsub.NewLoopback(&svc)
+		for i := 0; i < len(sendMsgs); i++ {
+			_ = l.Send(sendMsgs[i])
+		}
 
 		<-ready
 
