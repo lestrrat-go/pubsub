@@ -21,7 +21,6 @@ type Service struct {
 	data        chan pubsubCmd
 	subscribers []Subscriber
 
-	egress Egress
 	// note: The zero value should "work" (i.e. not blow up)
 }
 
@@ -30,7 +29,6 @@ type cmdType int
 const (
 	cmdSubscribe cmdType = iota + 1
 	cmdUnsubscribe
-	cmdSend
 	cmdReceive
 )
 
@@ -85,11 +83,6 @@ func (svc *Service) sendCmd(k cmdType, v interface{}, options ...CommandOption) 
 		return <-reply
 	}
 	return nil
-}
-
-// Send puts the payload `v` to be pubsub to all subscribers.
-func (svc *Service) Send(v interface{}, options ...CommandOption) error {
-	return svc.sendCmd(cmdSend, v, options...)
 }
 
 // Subscribe registers a subscriber to receive pubsub messages
@@ -156,7 +149,7 @@ func (svc *Service) drainPending(ctx context.Context) {
 					return
 				case svc.control <- v:
 				}
-			case cmdSend, cmdReceive:
+			case cmdReceive:
 				select {
 				case <-ctx.Done():
 					return
@@ -182,21 +175,8 @@ func compareSubscribers(a, b Subscriber) bool {
 	}
 }
 
-func (svc *Service) Run(ctx context.Context, options ...RunOption) error {
-	var egress Egress
-	//nolint:forcetypeassert
-	for _, option := range options {
-		switch option.Ident() {
-		case identEgress{}:
-			egress = option.Value().(Egress)
-		}
-	}
-
+func (svc *Service) Run(ctx context.Context) error {
 	svc.mu.Lock()
-	if egress == nil {
-		egress = nilEgress{}
-	}
-	svc.egress = egress
 	svc.cond = sync.NewCond(&svc.mu)
 	svc.control = make(chan pubsubCmd)
 	svc.data = make(chan pubsubCmd)
@@ -236,8 +216,6 @@ func (svc *Service) Run(ctx context.Context, options ...RunOption) error {
 			}
 		case v := <-svc.data:
 			switch v.kind {
-			case cmdSend:
-				_ = svc.egress.Send(v.payload)
 			case cmdReceive:
 				var errCount int
 				for _, sub := range svc.subscribers {
