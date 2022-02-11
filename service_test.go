@@ -30,10 +30,10 @@ func (b *loopback) Run(ctx context.Context, svc *pubsub.Service) {
 	}
 }
 func TestService(t *testing.T) {
-	t.Run("Send before subscribing should not be an error", func(t *testing.T) {
+	t.Run("Receive before looping should not be an error", func(t *testing.T) {
 		var svc pubsub.Service
 
-		if !assert.NoError(t, svc.Send(`Hello`, pubsub.WithAck(false)), `Sending before subscribing should not be an error`) {
+		if !assert.NoError(t, svc.Receive(`Hello`, pubsub.WithAck(false)), `Sending before subscribing should not be an error`) {
 			return
 		}
 	})
@@ -57,8 +57,10 @@ func TestService(t *testing.T) {
 		_ = svc.Subscribe(sub1, pubsub.WithAck(false))
 		_ = svc.Subscribe(sub2, pubsub.WithAck(false))
 
+		l := pubsub.NewLoopback(&svc)
+
 		for i := 0; i < len(sendMsgs); i++ {
-			_ = svc.Send(sendMsgs[i])
+			_ = l.Send(sendMsgs[i])
 		}
 
 		ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
@@ -69,7 +71,7 @@ func TestService(t *testing.T) {
 		go egress.Run(ctx, &svc)
 		go func(ready chan struct{}) {
 			defer close(ready)
-			_ = svc.Run(ctx, pubsub.WithEgress(egress))
+			_ = svc.Run(ctx)
 		}(ready)
 
 		<-ready
