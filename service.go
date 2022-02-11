@@ -10,12 +10,15 @@ import (
 // pubsubing it to all data sinks. It is expected that
 // the data sinks do not block more than absolutely necessary
 type Service struct {
-	running     bool
-	mu          sync.RWMutex
-	cond        *sync.Cond
+	// "shared" variables. These can be accessed from the user-facing API
+	running bool
+	mu      sync.RWMutex
+	cond    *sync.Cond
+	pending []pubsubCmd
+
+	// "private" variables. Can only be accessed from the internal structures.
 	control     chan pubsubCmd
 	data        chan pubsubCmd
-	pending     []pubsubCmd
 	subscribers []Subscriber
 
 	egress Egress
@@ -106,6 +109,8 @@ func (svc *Service) Receive(v interface{}, options ...CommandOption) error {
 	return svc.sendCmd(cmdReceive, v, options...)
 }
 
+// defines the maximum number of commands that can be processed in one
+// batch withing draingPending().
 const bufferProcessingSize = 32
 
 func (svc *Service) drainPending(ctx context.Context) {
