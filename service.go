@@ -176,10 +176,11 @@ func compareSubscribers(a, b Subscriber) bool {
 }
 
 func (svc *Service) Run(ctx context.Context) error {
+	const commandBufferSize = 16
 	svc.mu.Lock()
 	svc.cond = sync.NewCond(&svc.mu)
-	svc.control = make(chan pubsubCmd)
-	svc.data = make(chan pubsubCmd)
+	svc.control = make(chan pubsubCmd, commandBufferSize)
+	svc.data = make(chan pubsubCmd, commandBufferSize)
 	svc.running = true
 	svc.mu.Unlock()
 
@@ -192,44 +193,55 @@ func (svc *Service) Run(ctx context.Context) error {
 	}()
 
 	go svc.drainPending(ctx)
+	for done := false; !done; {
+		done = svc.process(ctx.Done())
+	}
 
-	for {
-		select {
-		case <-ctx.Done():
-			return nil
-		case v := <-svc.control:
-			switch v.kind {
-			case cmdSubscribe:
-				svc.subscribers = append(svc.subscribers, v.payload.(Subscriber))
-			case cmdUnsubscribe:
-				var found bool
-				for i, sub := range svc.subscribers {
-					if compareSubscribers(sub, v.payload.(Subscriber)) {
-						found = true
-						svc.subscribers = append(svc.subscribers[:i], svc.subscribers[i+1:]...)
-						break
-					}
-				}
-				if v.reply != nil && !found {
-					v.reply <- fmt.Errorf(`could not find subscription`)
-				}
-			}
-		case v := <-svc.data:
-			switch v.kind {
-			case cmdReceive:
-				var errCount int
-				for _, sub := range svc.subscribers {
-					if err := sub.Receive(v.payload); err != nil {
-						errCount++
-					}
-				}
-				if v.reply != nil && errCount > 0 {
-					v.reply <- fmt.Errorf(`some receivers failed to receive payload`)
+	// if we got here, <-ctx.Done() returned. Make sure to draing
+	// the remaining commands before we call it quits
+	for len(svc.data) > 0 && len(svc.control) > 0 {
+		_ = svc.process(nil)
+	}
+	return nil
+}
+
+func (svc *Service) process(done <-chan struct{}) bool {
+	select {
+	case <-done:
+		return true
+	case v := <-svc.control:
+		switch v.kind {
+		case cmdSubscribe:
+			svc.subscribers = append(svc.subscribers, v.payload.(Subscriber))
+		case cmdUnsubscribe:
+			var found bool
+			for i, sub := range svc.subscribers {
+				if compareSubscribers(sub, v.payload.(Subscriber)) {
+					found = true
+					svc.subscribers = append(svc.subscribers[:i], svc.subscribers[i+1:]...)
+					break
 				}
 			}
-			if v.reply != nil {
-				close(v.reply)
+			if v.reply != nil && !found {
+				v.reply <- fmt.Errorf(`could not find subscription`)
 			}
 		}
+	case v := <-svc.data:
+		switch v.kind {
+		case cmdReceive:
+			var errCount int
+			for _, sub := range svc.subscribers {
+				if err := sub.Receive(v.payload); err != nil {
+					errCount++
+				}
+			}
+			if v.reply != nil && errCount > 0 {
+				v.reply <- fmt.Errorf(`some receivers failed to receive payload`)
+			}
+		}
+		if v.reply != nil {
+			close(v.reply)
+		}
 	}
+	return false
 }
