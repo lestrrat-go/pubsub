@@ -109,21 +109,17 @@ const bufferProcessingSize = 32
 func (svc *Service) drainPending(ctx context.Context) {
 	pending := make([]pubsubCmd, 0, bufferProcessingSize)
 	for {
-		select {
-		case <-ctx.Done():
-			return
-		default:
-		}
-
 		svc.cond.L.Lock()
 		for len(svc.pending) <= 0 {
-			svc.cond.Wait()
-			// if we woke up and we're supposed to be done, bail out
+			// if nothing is pending, test if we're done and bail
 			select {
 			case <-ctx.Done():
+				svc.cond.L.Unlock()
 				return
 			default:
 			}
+			// nothing to process... wait for incoming work
+			svc.cond.Wait()
 		}
 
 		// copy over the pending queue so we can release the lock
