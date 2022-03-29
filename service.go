@@ -106,24 +106,23 @@ func (svc *Service) Receive(v interface{}, options ...CommandOption) error {
 // batch withing draingPending().
 const bufferProcessingSize = 32
 
-func (svc *Service) drainPending(ctx context.Context) {
+func (svc *Service) drainPending(ctx context.Context, drained chan struct{}) {
+	defer func() {
+		close(drained)
+	}()
 	pending := make([]pubsubCmd, 0, bufferProcessingSize)
 	for {
-		select {
-		case <-ctx.Done():
-			return
-		default:
-		}
-
 		svc.cond.L.Lock()
 		for len(svc.pending) <= 0 {
-			svc.cond.Wait()
-			// if we woke up and we're supposed to be done, bail out
+			// if nothing is pending, test if we're done and bail
 			select {
 			case <-ctx.Done():
+				svc.cond.L.Unlock()
 				return
 			default:
 			}
+			// nothing to process... wait for incoming work
+			svc.cond.Wait()
 		}
 
 		// copy over the pending queue so we can release the lock
@@ -184,15 +183,8 @@ func (svc *Service) Run(ctx context.Context) error {
 	svc.running = true
 	svc.mu.Unlock()
 
-	defer func() {
-		svc.mu.Lock()
-		svc.running = false
-		close(svc.data)
-		close(svc.control)
-		svc.mu.Unlock()
-	}()
-
-	go svc.drainPending(ctx)
+	drained := make(chan struct{})
+	go svc.drainPending(ctx, drained)
 	for done := false; !done; {
 		done = svc.process(ctx.Done())
 	}
@@ -202,6 +194,24 @@ func (svc *Service) Run(ctx context.Context) error {
 	for len(svc.data) > 0 && len(svc.control) > 0 {
 		_ = svc.process(nil)
 	}
+
+	// Cleanup
+	svc.mu.Lock()
+	svc.running = false
+	close(svc.data)
+	close(svc.control)
+	svc.data = nil
+	svc.control = nil
+	svc.mu.Unlock()
+
+	// Signal the cond var one last time. This will make sure that the
+	// drainPending() goroutine wakes up and notices that the code path
+	// for <-ctx.Done()
+	svc.cond.Signal()
+
+	// Make absolutely sure we have cleaned up the drainPending
+	// goroutine by waiting on this channel
+	<-drained
 	return nil
 }
 
